@@ -1,0 +1,13 @@
+{
+  "name": "Hsync Server",
+  "description": "A tunnel for routing web requests to your local enviroment",
+  "repository": "https://github.com/monteslu/hsync-server",
+  "logo": "https://node-js-sample.herokuapp.com/node.png",
+  "keywords": ["node", "websockets", "development"],
+  "env": {
+    "HSYNC_SECRET": {
+      "description": "You'll need this for your hsync connections.  Copy the value from heroku settings ENV variables.",
+      "generator": "secret"
+    }
+  }
+}

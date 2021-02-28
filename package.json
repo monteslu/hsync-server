@@ -1,0 +1,24 @@
+{
+  "name": "hsync-server",
+  "version": "1.0.0",
+  "description": "creates unlimited public web URLs for your web servers no matter where they may be running",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon --inspect index.js",
+    "dev-brk": "nodemon --inspect-brk index.js",
+    "start": "node index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "aedes": "^0.44.2",
+    "b64id": "^1.0.0",
+    "http-parser-js": "^0.5.3",
+    "rawr": "^0.14.0",
+    "websocket-stream": "^5.5.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.7"
+  }
+}

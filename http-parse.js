@@ -1,0 +1,91 @@
+// const HTTPParser = process.binding('http_parser').HTTPParser;
+// const { HTTPParser, methods } = require('http-parser-js');
+const { HTTPParser, methods } = require('_http_common');
+const TIMEOUT = 4000;
+
+const kOnHeaders = HTTPParser.kOnHeaders | 0;
+const kOnHeadersComplete = HTTPParser.kOnHeadersComplete | 0;
+const kOnBody = HTTPParser.kOnBody | 0;
+const kOnMessageComplete = HTTPParser.kOnMessageComplete | 0;
+
+//console.log ({kOnHeaders, kOnHeadersComplete, kOnBody, kOnMessageComplete, methods});
+
+
+function parseReqHeaders(buff) {
+  // console.log('parsing', buff.length);
+  return new Promise((resolve) => {
+    const parser = new HTTPParser();
+    parser.initialize(HTTPParser.REQUEST, {});
+
+    const info = {
+      bodyLength: 0,
+      bodyStart: null,
+      headers: {},
+      finished: false,
+      headersFinished: false,
+      bodyFinished: false,
+    };
+
+    parser.headers = [];
+
+    parser[kOnHeaders] = () => {
+      // console.log('kOnHeaders');
+    };
+    parser[kOnHeadersComplete] = (major, minor, parsedHeaders, methodId, url, b, c, d, e, f, g) => {
+      // console.log('kOnHeadersComplete', major, minor, parsedHeaders, methodId, url, b, c, d, e, f, g);
+      parsedHeaders.forEach((h, idx) => {
+        if ((idx % 2) === 0) {
+          info.headers[h.toLowerCase()] = parsedHeaders[idx + 1];
+        }
+      })
+      info.method = methods[methodId];
+      info.url = url;
+      info.major = major;
+      info.minor = minor;
+      info.host = info.headers.host?.split(':')[0];
+      info.length = buff.length;
+      if (info.headers['content-length']) {
+        const lenParsed = parseInt(info.headers['content-length']);
+        info.contentLengthHeader = Number.isNaN(lenParsed) ? null : lenParsed;
+      }
+      info.headersFinished = true;
+      // console.log('headers complete');
+    };
+    parser[kOnBody] = (buff, start, bodyLength) => {
+      const size = info.contentLengthHeader;
+      console.log('kOnBody buff.length', buff.length,'start', start, 'bodyLength', bodyLength, 'contentLength', size)
+      info.bodyLength = bodyLength;
+      info.bodyStart = start;
+      info.bodyFinished = true;
+
+      // this kinda sucks
+      const { connection } = info.headers;
+      if ((connection === 'close') && size && (size > bodyLength)) {
+        // kOnMessageComplete wont fire, so just finish it here
+        // console.log('konbody finished');
+        resolve(info);
+      }
+    };
+    parser[kOnMessageComplete] = () => {
+      info.finished = true;
+      // console.log('kOnMessageComplete');
+      // console.log('kOnMessageComplete');
+      resolve(info);
+    };
+    setTimeout(() => {
+      if (!info.finished) {
+        try {
+          parser.finish();
+        }catch (e) {
+          console.log('cant stop parse', e);
+        }
+        resolve(info);
+      }
+    }, TIMEOUT);
+    parser.execute(buff, 0, buff.length);
+  });
+}
+
+module.exports = {
+  parseReqHeaders,
+};
