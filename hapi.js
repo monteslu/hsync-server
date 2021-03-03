@@ -6,14 +6,13 @@ const CookieAuth = require('@hapi/cookie');
 const HapiSwagger = require('hapi-swagger');
 const WS = require('websocket-stream');
 const debug = require('debug')('errors');
-const debugVerbose = require('debug')('hsync:verbose');
 const debugHttp = require('debug')('hsync:http');
 
 
 const config = require('./config');
 const { aedes } = require('./aedes');
-const sockets = require('./socket-map');
-const Routes = require('./routes');
+const sockets = require('./lib/socket-map');
+const Routes = require('./lib/routes');
 
 const server = Hapi.server(config.http);
 
@@ -45,7 +44,7 @@ async function startHapi() {
 
   try {
     await server.start();
-    console.log('hapi server running on port:', config.http.port);
+    debugHttp('hapi server running on port:', config.http.port);
   } catch (err) {
     debug(err);
     return err;

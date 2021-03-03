@@ -4,25 +4,19 @@ const b64id = require('b64id');
 const rawr = require('rawr');
 const boom = require('@hapi/boom');
 
-const sockets = require('./socket-map');
-const BAD_GATEWAY = require('./bad-gateway');
 const EventEmitter = require('events').EventEmitter;
 const debug = require('debug')('hsync:mqtt');
+const sockets = require('./lib/socket-map');
+const BAD_GATEWAY = require('./lib/bad-gateway');
+const auth = require('./lib/auth');
 
 const rpcRequests = {};
 
-const {
-  hsyncSecret,
-} = require('./config');
-
-
 const aedes = Aedes({
 
-  authenticate: (client, username, password, callback) => {
+  authenticate: async (client, username, password, callback) => {
 
-    // debug('\n\nauthenticate', client.id, username, password?.toString(), '\n');
-    debug('hsyncsec', hsyncSecret, password?.toString());
-    let authed = hsyncSecret === password?.toString();
+    let authed = await auth(username, password?.toString());
     
     if(authed) {
       // const hostName = client.req.headers.host.split(':')[0];

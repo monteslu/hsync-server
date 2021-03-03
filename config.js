@@ -3,13 +3,12 @@ const pack = require('./package.json');
 const config = {
   hsyncSecret : process.env.HSYNC_SECRET, // keep it secret, keep it safe!
   hsyncBase: process.env.HSYNC_BASE || '_hs', // this is where the hsync client websockets will connect
-  MAX_BYTES_PARSE : parseInt(process.env.MAX_BYTES_PARSE) || 10000, // max number of byets to read from first http data chunck
   port: process.env.PORT || 3101, // don't change this if deploying to app host like heroku or digital ocean
 };
 
 
 config.cookies = {
-  password: config.hsyncSecret,
+  password: process.env.HSYNC_COOKIE_SECRET || (config.hsyncSecret + config.hsyncSecret), // at least 32 characters
   name: config.hsyncBase,
   isSecure: false,
   path: `/${config.hsyncBase}`,

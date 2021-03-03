@@ -1,9 +1,9 @@
 const net = require('net');
 const b64id = require('b64id');
-const debugInfo = require('debug')('hsync:info');
+const debug = require('debug')('hsync:info');
 
 const { parseReqHeaders } = require('./lib/http-parse');
-const sockets = require('./socket-map');
+const sockets = require('./lib/socket-map');
 const { forwardWebRequest, sendCloseRequest } = require('./aedes');
 const { startHapi, handleLocalHttpRequest } = require('./hapi');
 const config = require('./config');
@@ -17,25 +17,25 @@ const socketServer = net.createServer((socket) => {
   socket.parsingStarted = false;
   socket.parsingFinished = false;
   socket.hsyncClient = false;
-  // console.log('CONNECTION FROM EXTERNAL', socket.socketId);
+  // debug('CONNECTION FROM EXTERNAL', socket.socketId);
 
   socket.on('data', async (data) => {
     if (!socket.hsyncClient) {
-      console.log(`→ EXTERNAL DATA ${socket.socketId}`, socket.hostName, data.length, 'parsingStarted', socket.parsingStarted, 'finished', socket.parsingFinished);
+      debug(`→ EXTERNAL DATA ${socket.socketId}`, socket.hostName, data.length, 'parsingStarted', socket.parsingStarted, 'finished', socket.parsingFinished);
     }
 
     if (!socket.parsingStarted) {
       socket.parsingStarted = true;
       
       const parsed = await parseReqHeaders(data);
-      // console.log('parsed', JSON.stringify(parsed));
+      // debug('parsed', JSON.stringify(parsed));
       socket.parsingFinished = true;
-      console.log('path', parsed.url);
+      debug('path', parsed.url);
       if(parsed.headersFinished) {
         socket.hostName = parsed.host;
         socket.originalUrl = parsed.url;
         if(parsed.url.startsWith(HSYNC_CONNECT_PATH) || (parsed.url === '/favicon.ico')) {
-          debugInfo('hsync path', parsed.url);
+          debug('hsync path', parsed.url);
           if (parsed.headers['upgrade']) {
             socket.hsyncClient = true;
           }
@@ -47,7 +47,7 @@ const socketServer = net.createServer((socket) => {
         delete sockets[socket.socketId];
         return;
       }
-      console.log('regular request', socket.originalUrl);
+      debug('regular request', socket.originalUrl);
       forwardWebRequest(socket, data, parsed);
       if(socket.webQueue) {
         socket.webQueue.forEach((d) => {
@@ -60,25 +60,25 @@ const socketServer = net.createServer((socket) => {
     } else if (socket.mqTCPSocket) {
       return socket.mqTCPSocket.write(data);
     } else if (socket.parsingStarted && !socket.parsingFinished) {
-      console.log('adding data to webqueue while parsing', socket.socketId, data.length);
+      debug('adding data to webqueue while parsing', socket.socketId, data.length);
       socket.webQueue = socket.webQueue || [];
       socket.webQueue.push(data);
       return;
     }
-    console.log('moar data on same con', socket.originalUrl);
+    debug('moar data on same con', socket.originalUrl);
     return forwardWebRequest(socket, data);
   });
 
   socket.on('close', () => {
-    // console.log('EXTERNAL CONNECTION CLOSED', socket.socketId, socket.hostName);
+    // debug('EXTERNAL CONNECTION CLOSED', socket.socketId, socket.hostName);
     if (socket.mqTCPSocket) {
-      console.log(`CLOSING ${socket.hsyncClient ? 'MQTT' : 'HTTP'} connection`, socket.socketId, socket.hostName);
+      debug(`CLOSING ${socket.hsyncClient ? 'MQTT' : 'HTTP'} connection`, socket.socketId, socket.hostName);
       socket.mqTCPSocket.end();
       delete sockets[socket.socketId];
       return;
     }
     if (socket.hostName) {
-      console.log('SENDING CLOSE REQUEST', socket.socketId, socket.hostName);
+      debug('SENDING CLOSE REQUEST', socket.socketId, socket.hostName);
       sendCloseRequest(socket.hostName, socket.socketId);
     }
     if (sockets[socket.socketId]) {
@@ -87,9 +87,9 @@ const socketServer = net.createServer((socket) => {
   });
 
   socket.on('error', (error) => {
-    console.log('socket error', socket.socketId, error);
+    debug('socket error', socket.socketId, error);
     if (socket.mqTCPSocket) {
-      console.log('CLOSING MQTT/HTTP connection', socket.socketId);
+      debug('CLOSING MQTT/HTTP connection', socket.socketId);
       socket.mqTCPSocket.end();
     }
     if (sockets[socket.socketId]) {
@@ -101,4 +101,4 @@ const socketServer = net.createServer((socket) => {
 
 startHapi();
 socketServer.listen(config.port);
-console.log('hsync server listening on port', config.port);
+debug('hsync server listening on port', config.port);
