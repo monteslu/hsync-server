@@ -1,28 +1,14 @@
 const net = require('net');
-const http = require('http');
-const ws = require('websocket-stream');
 const b64id = require('b64id');
+const debugInfo = require('debug')('hsync:info');
 
-const { parseReqHeaders } = require('./http-parse');
+const { parseReqHeaders } = require('./lib/http-parse');
 const sockets = require('./socket-map');
-const { aedes, forwardWebRequest, handleMQTTSocket, sendCloseRequest } = require('./aedes');
-const {
-  PORT,
-  INTERNAL_SOCKET_PORT,
-  HSYNC_BASE,
-} = require('./config');
+const { forwardWebRequest, sendCloseRequest } = require('./aedes');
+const { startHapi, handleLocalHttpRequest } = require('./hapi');
+const config = require('./config');
 
-const HSYNC_CONNECT_PATH = `/${HSYNC_BASE}`;
-
-console.log({PORT, INTERNAL_SOCKET_PORT, HSYNC_BASE});
-
-net.createServer(aedes.handle);
-const httpServer = http.createServer();
-ws.createServer({ server: httpServer }, aedes.handle)
-
-httpServer.listen(INTERNAL_SOCKET_PORT, () => {
-  console.log('internal Aedes MQTT-WS listening');
-});
+const HSYNC_CONNECT_PATH = `/${config.hsyncBase}`;
 
 const socketServer = net.createServer((socket) => {
 
@@ -44,11 +30,16 @@ const socketServer = net.createServer((socket) => {
       const parsed = await parseReqHeaders(data);
       // console.log('parsed', JSON.stringify(parsed));
       socket.parsingFinished = true;
+      console.log('path', parsed.url);
       if(parsed.headersFinished) {
         socket.hostName = parsed.host;
-        if(parsed.headers['upgrade'] && parsed.url.startsWith(HSYNC_CONNECT_PATH)) {
-          socket.hsyncClient = true;
-          return handleMQTTSocket(socket, data);
+        socket.originalUrl = parsed.url;
+        if(parsed.url.startsWith(HSYNC_CONNECT_PATH) || (parsed.url === '/favicon.ico')) {
+          debugInfo('hsync path', parsed.url);
+          if (parsed.headers['upgrade']) {
+            socket.hsyncClient = true;
+          }
+          return handleLocalHttpRequest(socket, data);
         }
       } else {
         // come on, at least put the damn headers in the first packet, you animals
@@ -56,7 +47,7 @@ const socketServer = net.createServer((socket) => {
         delete sockets[socket.socketId];
         return;
       }
-      
+      console.log('regular request', socket.originalUrl);
       forwardWebRequest(socket, data, parsed);
       if(socket.webQueue) {
         socket.webQueue.forEach((d) => {
@@ -66,7 +57,7 @@ const socketServer = net.createServer((socket) => {
       }
       return;
 
-    } else if (socket.hsyncClient) {
+    } else if (socket.mqTCPSocket) {
       return socket.mqTCPSocket.write(data);
     } else if (socket.parsingStarted && !socket.parsingFinished) {
       console.log('adding data to webqueue while parsing', socket.socketId, data.length);
@@ -74,17 +65,20 @@ const socketServer = net.createServer((socket) => {
       socket.webQueue.push(data);
       return;
     }
+    console.log('moar data on same con', socket.originalUrl);
     return forwardWebRequest(socket, data);
   });
 
   socket.on('close', () => {
     // console.log('EXTERNAL CONNECTION CLOSED', socket.socketId, socket.hostName);
     if (socket.mqTCPSocket) {
-      console.log('CLOSING MQTT/HTTP connection', socket.socketId, socket.hostName);
+      console.log(`CLOSING ${socket.hsyncClient ? 'MQTT' : 'HTTP'} connection`, socket.socketId, socket.hostName);
       socket.mqTCPSocket.end();
+      delete sockets[socket.socketId];
       return;
     }
     if (socket.hostName) {
+      console.log('SENDING CLOSE REQUEST', socket.socketId, socket.hostName);
       sendCloseRequest(socket.hostName, socket.socketId);
     }
     if (sockets[socket.socketId]) {
@@ -105,5 +99,6 @@ const socketServer = net.createServer((socket) => {
 
 });
 
-socketServer.listen(PORT);
-console.log('hsync server listening on port', PORT);
+startHapi();
+socketServer.listen(config.port);
+console.log('hsync server listening on port', config.port);

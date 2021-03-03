@@ -2,48 +2,49 @@ const net = require('net');
 const Aedes = require('aedes');
 const b64id = require('b64id');
 const rawr = require('rawr');
+const boom = require('@hapi/boom');
+
 const sockets = require('./socket-map');
 const BAD_GATEWAY = require('./bad-gateway');
 const EventEmitter = require('events').EventEmitter;
+const debug = require('debug')('hsync:mqtt');
 
 const rpcRequests = {};
 
 const {
-  INTERNAL_SOCKET_PORT,
-  HSYNC_SECRET,
+  hsyncSecret,
 } = require('./config');
 
-console.log({HSYNC_SECRET})
 
 const aedes = Aedes({
 
   authenticate: (client, username, password, callback) => {
 
-    // console.log('\n\nauthenticate', client.id, username, password?.toString(), '\n');
-  
-    let authed = HSYNC_SECRET === password?.toString();
+    // debug('\n\nauthenticate', client.id, username, password?.toString(), '\n');
+    debug('hsyncsec', hsyncSecret, password?.toString());
+    let authed = hsyncSecret === password?.toString();
     
     if(authed) {
       // const hostName = client.req.headers.host.split(':')[0];
       client.hostName = username;
       const topic = `web/${username}/#`;
-      // console.log('mq username', username);
+      // debug('mq username', username);
       client.subscribe({topic, qos: 0}, (err) => {
         if (err) {
-          console.log('Error subscribing', topic, err);
+          debug('Error subscribing', topic, err);
         }
       });
       const msgTopic = `msg/${username}/#`;
       client.subscribe({topic: msgTopic , qos: 0}, (err) => {
         if (err) {
-          console.log('Error subscribing', msgTopic, err);
+          debug('Error subscribing', msgTopic, err);
         }
       });
     }
     callback(null, authed);
   },
   authorizePublish: (client, packet, callback) => {
-    console.log('authorizePublish',  packet.topic, !!packet.payload);
+    debug('authorizePublish',  packet.topic, !!packet.payload);
     
     if (packet.topic) {
       const topicSegments = packet.topic.split('/');
@@ -57,7 +58,7 @@ const aedes = Aedes({
         }
       } else if (name === 'close') {
         if (socketId) {
-          // console.log('CLOSE FOUND', host, socketId);
+          // debug('CLOSE FOUND', host, socketId);
           const socket = sockets[socketId];
           if (socket) {
             socket.end();
@@ -68,11 +69,11 @@ const aedes = Aedes({
         const msgTo = host;
         const senderName = socketId;
         if (msgTo === client.hostName) {
-          console.log('cant message self', msgTo, client.hostName, senderName);
+          debug('cant message self', msgTo, client.hostName, senderName);
           callback(new Error('cant send message to self'));
           return;
         } else if (senderName !== client.hostName) {
-          console.log('must specify own name as 3rd segment', msgTo, client.hostName, senderName);
+          debug('must specify own name as 3rd segment', msgTo, client.hostName, senderName);
           callback(new Error('must specify own name on 3rd topic segment'));
           return;
         }
@@ -81,7 +82,7 @@ const aedes = Aedes({
         const msgFrom = host;
         const requestId = socketId;
         if (msgFrom !== client.hostName) {
-          console.log('cant rpc to server for someone else', msgFrom, client.hostName, requestId);
+          debug('cant rpc to server for someone else', msgFrom, client.hostName, requestId);
           callback(new Error('cant rpc to server for someone else'));
           return;
         } else if (rpcRequests[requestId]) {
@@ -96,7 +97,7 @@ const aedes = Aedes({
   },
 
   authorizeSubscribe: (client, sub, callback) => {
-    // console.log('authorizeSubscribe', client.id, sub.topic);
+    // debug('authorizeSubscribe', client.id, sub.topic);
     callback(null, sub);
   }
 });
@@ -112,14 +113,14 @@ function forwardWebRequest(socket, data, info) {
   const topic = `web/${socket.hostName}/${socket.socketId}`;
 
   if (!socket.hostName) {
-    console.log('PARSING FAILED, why no host?', topic, info ? 'first' : '');
+    debug('PARSING FAILED, why no host?', topic, info ? 'first' : '');
     socket.end();
     return;
   }
 
   // TODO this wont work if mqtt is external, or servers are clustered
   if (!Object.keys(aedes.clients).length) {
-    console.log('NO MQ Client for:', socket.hostName);
+    debug('NO MQ Client for:', socket.hostName);
     socket.write(BAD_GATEWAY);  
     socket.end();
     delete sockets[socket.socketId];
@@ -127,18 +128,18 @@ function forwardWebRequest(socket, data, info) {
   }
 
 
-  console.log('↓ WEB REQUEST', topic, data.length, info ? 'first' : '');
+  debug('↓ WEB REQUEST', topic, data.length, info ? 'first' : '');
 
   if (info) { //first packet on socket
     const { headers } = info;
     const size = info.contentLengthHeader;
     const connection = headers.connection;
     // sometimes we have to wait for more data even tho a request says to close.
-    // console.log('size', size, 'connect', headers.connection, 'bodylength', info.bodyLength);  
+    // debug('size', size, 'connect', headers.connection, 'bodylength', info.bodyLength);  
     if((connection === 'close') && size && (size > info.bodyLength)) {
       socket.httpWaiting = { data, size, currentBodySize: size };
       socket.httpWaiting.timeoutId = setTimeout(() => {
-        console.log('waited long enough, just send what we have.', topic, socket.httpWaiting.data.legth)
+        debug('waited long enough, just send what we have.', topic, socket.httpWaiting.data.legth)
         publish(topic, socket.httpWaiting.data);
         socket.httpWaiting = null;
       }, 3000); // TODO make configurable
@@ -150,7 +151,7 @@ function forwardWebRequest(socket, data, info) {
   } else if (socket.httpWaiting) {
     const { httpWaiting } = socket;
     const newSize = httpWaiting.currentBodySize + data.length;
-    console.log('waiting current:', httpWaiting.currentBodySize, 'new', data.length, 'new_total', newSize, 'total_needed', httpWaiting.size);
+    debug('waiting current:', httpWaiting.currentBodySize, 'new', data.length, 'new_total', newSize, 'total_needed', httpWaiting.size);
     httpWaiting.data = Buffer.concat([httpWaiting.data, data]);
     httpWaiting.currentBodySize = newSize;
 
@@ -173,7 +174,7 @@ function createRawrTransport(hostName, requestId) {
       msg = JSON.stringify(msg);
     }
     const topic = `msg/${hostName}/${requestId}/ssrpc`;
-    // console.log('sending', topic, msg);
+    // debug('sending', topic, msg);
     publish(topic, Buffer.from(msg));
   };
   transport.receiveData = (msg) => {
@@ -196,7 +197,7 @@ function getRPCPeer(hostName, timeout = 5000) {
 function publish(topic, payload) {
   aedes.publish({ topic, payload, qos: 0, retain: false }, (err) => {
     if (err) {
-      console.log('error publishing', topic, payload.length, err);
+      debug('error publishing', topic, payload.length, err);
     }
   });
 }
@@ -209,30 +210,11 @@ async function rpcToClient(hostName, methodName, ...rest) {
     return result;
   } catch(e) {
     delete rpcRequests[peer.requestId];
+    if (e.code = 504) {
+      throw boom.gatewayTimeout(`RPC Timeout to ${hostName} client`);
+    }
     throw e;
   }
-}
-
-function handleMQTTSocket(socket, data) {
-  // TODO would be a hell of a lot cooler if it could just forward data instead of making a socket here.
-  const mqTCPSocket = new net.Socket();
-  mqTCPSocket.connect(INTERNAL_SOCKET_PORT, '127.0.0.1', () => {
-    console.log('CONNECTED TO LOCAL MQTT/HTTP SERVER', socket.socketId, socket.hostName);
-  });
-
-  mqTCPSocket.on('data', (data) => {
-    //console.log(`← to MQTT CLIENT ${socket.socketId}`, socket.hostName, data.length);
-    socket.write(data);
-  });
-  mqTCPSocket.on('close', () => {
-    console.log('LOCAL MQTT/HTTP CONNECTION CLOSED', socket.socketId, socket.hostName);
-    socket.end();
-    delete sockets[socket.socketId];
-  });
-  socket.mqTCPSocket = mqTCPSocket;
-  // console.log(`→ to MQTT SERVER ${socket.socketId}`, socket.hostName);
-  socket.mqTCPSocket.write(data);
-  return socket;
 }
 
 
@@ -240,7 +222,6 @@ module.exports = {
   aedes,
   forwardWebRequest,
   publish,
-  handleMQTTSocket,
   sendCloseRequest,
   rpcToClient,
 };

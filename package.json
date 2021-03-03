@@ -12,9 +12,17 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@hapi/boom": "^9.1.1",
+    "@hapi/cookie": "^11.0.2",
+    "@hapi/hapi": "^20.1.0",
+    "@hapi/inert": "^6.0.3",
+    "@hapi/vision": "^6.0.1",
     "aedes": "^0.44.2",
     "b64id": "^1.0.0",
+    "debug": "^4.3.1",
+    "hapi-swagger": "^14.1.0",
     "http-parser-js": "^0.5.3",
+    "joi": "^17.4.0",
     "rawr": "^0.14.0",
     "websocket-stream": "^5.5.2"
   },
