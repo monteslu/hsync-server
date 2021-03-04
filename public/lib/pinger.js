@@ -2,14 +2,13 @@ const config = window.hsyncConfig;
 const { preact, apiFetch } = config.libs;
 const { html, useState } = preact;
 
-export function Pinger (props) {
+export function Pinger () {
   const [pinging, setPinging] = useState(false);
   const [pingMsg, setPingMsg] = useState('');
   const [pingResult, setPingResult] = useState('');
   const [error, setError] = useState('');
 
   const pingInput = (e) => {
-    // setPingResult('');
     setPingMsg(e.target.value);
   };
 
