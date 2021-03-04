@@ -1,4 +1,3 @@
-const net = require('net');
 const Aedes = require('aedes');
 const b64id = require('b64id');
 const rawr = require('rawr');
@@ -8,7 +7,7 @@ const EventEmitter = require('events').EventEmitter;
 const debug = require('debug')('hsync:mqtt');
 const sockets = require('./lib/socket-map');
 const BAD_GATEWAY = require('./lib/bad-gateway');
-const auth = require('./lib/auth');
+const { auth } = require('./lib/auth');
 
 const rpcRequests = {};
 

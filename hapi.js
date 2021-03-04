@@ -5,6 +5,7 @@ const Vision = require('@hapi/vision');
 const CookieAuth = require('@hapi/cookie');
 const HapiSwagger = require('hapi-swagger');
 const WS = require('websocket-stream');
+const Handlebars = require('handlebars');
 const debug = require('debug')('errors');
 const debugHttp = require('debug')('hsync:http');
 
@@ -38,6 +39,16 @@ async function startHapi() {
     validateFunc: async (request, session) => {
       return { valid: true };
     }
+  });
+
+  server.views({
+    engines: {
+      html: Handlebars,
+      hbs: Handlebars,
+    },
+    relativeTo: __dirname,
+    path: 'templates',
+    defaultExtension: 'hbs',
   });
 
   server.route(Routes);

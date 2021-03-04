@@ -40,10 +40,8 @@ config.swaggerOptions = {
     },
   }],
   basePath: `/${config.hsyncBase}`,
-  documentationPath: `/${config.hsyncBase}/docs`,
+  documentationPath: `/${config.hsyncBase}/documentation`,
   swaggerUIPath: `/${config.hsyncBase}/swaggerui/`,
-  // jsonPath: `/${config.hsyncBase}/swagger.json`,
-  // routesBasePath: `/${config.hsyncBase}/swaggerui/`,
   pathPrefixSize: 2,
 };
 

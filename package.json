@@ -7,7 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --inspect index.js",
     "dev-brk": "nodemon --inspect-brk index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "build": "webpack"
   },
   "author": "",
   "license": "ISC",
@@ -20,6 +21,7 @@
     "aedes": "^0.44.2",
     "b64id": "^1.0.0",
     "debug": "^4.3.1",
+    "handlebars": "^4.7.7",
     "hapi-swagger": "^14.1.0",
     "http-parser-js": "^0.5.3",
     "joi": "^17.4.0",
@@ -27,6 +29,10 @@
     "websocket-stream": "^5.5.2"
   },
   "devDependencies": {
-    "nodemon": "^2.0.7"
+    "htm": "^3.0.4",
+    "nodemon": "^2.0.7",
+    "preact": "^10.5.12",
+    "webpack": "^4.46.0",
+    "webpack-cli": "^3.3.12"
   }
 }
