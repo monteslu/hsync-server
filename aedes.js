@@ -203,13 +203,15 @@ async function rpcToClient(hostName, methodName, ...rest) {
     return result;
   } catch(e) {
     delete rpcRequests[peer.requestId];
-    if (e.code = 504) {
+    if (e.code === 504) {
       throw boom.gatewayTimeout(`RPC Timeout to ${hostName} client`);
+    }
+    else if (e.message) {
+      throw boom.notImplemented(e.message);
     }
     throw e;
   }
 }
-
 
 module.exports = {
   aedes,
