@@ -39,7 +39,14 @@ const socketServer = net.createServer((socket) => {
           if (parsed.headers['upgrade']) {
             socket.hsyncClient = true;
           }
-          return handleLocalHttpRequest(socket, data);
+          handleLocalHttpRequest(socket, data);
+          if(socket.webQueue && socket.mqTCPSocket) {
+            socket.webQueue.forEach((d) => {
+              socket.mqTCPSocket.write(d);
+            });
+            socket.webQueue = null;
+          }
+          return;
         }
       } else {
         // come on, at least put the damn headers in the first packet, you animals
