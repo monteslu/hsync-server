@@ -26,11 +26,10 @@ const socketServer = net.createServer((socket) => {
 
     if (!socket.parsingStarted) {
       socket.parsingStarted = true;
-      
+      const startTime = Date.now();
       const parsed = await parseReqHeaders(data);
-      // debug('parsed', JSON.stringify(parsed));
       socket.parsingFinished = true;
-      debug('path', parsed.url);
+      debug('path', parsed.url, Date.now() - startTime);
       if(parsed.headersFinished) {
         socket.hostName = parsed.host;
         socket.originalUrl = parsed.url;
