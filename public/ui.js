@@ -51,13 +51,13 @@ function App () {
     </div>
     <main style=${styles.main}>
       <div>${error?.message || error?.toString()}</div>
-      <div><${Pinger} foo="bar"/></div>
+      <div><${Pinger}/></div>
     </main>`
     :
     html`
     <div style=${{margin: '15px'}}>
       <div class="mb-3">
-        <input type="password" class="form-control" id="exampleFormControlInput1" placeholder="secret" onInput=${textInput} value=${secret} />
+        <input type=password class="form-control" id="exampleFormControlInput1" placeholder="secret" onInput=${textInput} value=${secret} />
       </div>
       <button 
           class="btn btn-primary"

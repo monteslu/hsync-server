@@ -4,6 +4,8 @@ const config = {
   hsyncSecret : process.env.HSYNC_SECRET, // keep it secret, keep it safe!
   hsyncBase: process.env.HSYNC_BASE || '_hs', // this is where the hsync client websockets will connect
   port: process.env.PORT || 3101, // don't change this if deploying to app host like heroku or digital ocean
+  dynamicBase: process.env.HSYNC_DYNAMIC_BASE || null,
+  maxDynamicData: parseInt(process.env.HSYNC_DYNAMIC_MAX || 10000000), // ten megs outta be enough for anyone
 };
 
 
