@@ -1,4 +1,5 @@
 import { Pinger } from './lib/pinger.js';
+import { Listeners } from './lib/listeners.js';
 const config = window.hsyncConfig;
 const { preact, apiFetch } = config.libs;
 const { html, render, useState } = preact;
@@ -51,6 +52,7 @@ function App () {
     </div>
     <main style=${styles.main}>
       <div>${error?.message || error?.toString()}</div>
+      <div><${Listeners}/></div>
       <div><${Pinger}/></div>
     </main>`
     :
