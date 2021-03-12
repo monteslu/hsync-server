@@ -3,8 +3,7 @@ const { preact, apiFetch } = config.libs;
 const { html, useState, useEffect } = preact;
 
 export function Listeners () {
-  const [pinging, setPinging] = useState(false);
-  const [pingMsg, setPingMsg] = useState('');
+  const [updating, setUpdating] = useState(false);
   const [pingResult, setPingResult] = useState('');
   const [error, setError] = useState('');
   const [listeners, setListeners] = useState([]);
@@ -34,24 +33,26 @@ export function Listeners () {
   };
 
   const addListener = async () => {
-    setPinging(true);
+    setUpdating(true);
     setPingResult('');
     setError('');
     try {
       const pingVal = await apiFetch.post('/srpc', {method: 'addSocketListener', params: [port, hostName, targetPort]});
       setPingResult(pingVal);
-      setPinging(false);
+      setUpdating(false);
     } catch (e) {
-      setPinging(false);
+      setUpdating(false);
       setError(e);
     }
   };
+
+  console.log('pingr', listeners)
 
   return html`
   <div class="card" style="width: 18rem;">
     <div class="card-body">
       <h5 class="card-title">Listeners</h5>
-      ${pinging ? html`<div class="spinner-border text-primary" role="status">
+      ${updating ? html`<div class="spinner-border text-primary" role="status">
         <span class="visually-hidden">Loading...</span>
         </div>` : ''}
       ${error ? html`<div class="alert alert-danger" role="alert">
@@ -69,7 +70,7 @@ export function Listeners () {
       <div class="mdl-card__supporting-text">
         <button 
           class="btn btn-primary"
-          disabled=${pinging}
+          disabled=${updating}
           onClick=${addListener}
         >
           Add Listener
