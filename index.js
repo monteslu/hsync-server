@@ -1,6 +1,7 @@
 const net = require('net');
 const b64id = require('b64id');
 const debug = require('debug')('hsync:info');
+const debugError = require('debug')('error');
 
 const { parseReqHeaders } = require('./lib/http-parse');
 const sockets = require('./lib/socket-map');
@@ -93,7 +94,7 @@ const socketServer = net.createServer((socket) => {
   });
 
   socket.on('error', (error) => {
-    debug('socket error', socket.socketId, error);
+    debugError('socket error', socket.socketId, error);
     if (socket.mqTCPSocket) {
       debug('CLOSING MQTT/HTTP connection', socket.socketId);
       socket.mqTCPSocket.end();
