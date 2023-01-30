@@ -7,9 +7,33 @@ const EventEmitter = require('events').EventEmitter;
 const debug = require('debug')('hsync:mqtt');
 const sockets = require('./lib/socket-map');
 const BAD_GATEWAY = require('./lib/bad-gateway');
-const { auth } = require('./lib/auth');
+const { auth, dyns } = require('./lib/auth');
+const config = require('./config');
 
 const rpcRequests = {};
+
+const clients = {};
+
+function clearOldDyns() {
+  for (const name in dyns) {
+    const d = dyns[name];
+    const now = Date.now();
+    if ((now - d.created) > config.unauthedTimeout) {
+      try {
+        clients[name].close();
+      } catch (e) {
+        debug('error disconnecting duplicate client', e);
+      }
+      delete dyns[name];
+    }
+  }
+
+  setTimeout(clearOldDyns, 60000);
+}
+
+if (config.unauthedNames) {
+  clearOldDyns();
+}
 
 const aedes = Aedes({
 
@@ -33,6 +57,14 @@ const aedes = Aedes({
           debug('Error subscribing', msgTopic, err);
         }
       });
+      if (clients[username]) {
+        try {
+          clients[username].close();
+        } catch (e) {
+          debug('error disconnecting duplicate client', e);
+        }
+      }
+      clients[username] = client;
     }
     callback(null, authed);
   },
