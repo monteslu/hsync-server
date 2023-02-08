@@ -1,5 +1,6 @@
 import { Pinger } from './lib/pinger.js';
 import { Listeners } from './lib/listeners.js';
+import { Relays } from './lib/relays.js';
 const config = window.hsyncConfig;
 const { preact, apiFetch } = config.libs;
 const { html, render, useState } = preact;
@@ -7,6 +8,7 @@ const { html, render, useState } = preact;
 const styles = {
   main: {
     margin: '15px',
+    width: '90%',
   },
 };
 
@@ -53,6 +55,7 @@ function App () {
     <main style=${styles.main}>
       <div>${error?.message || error?.toString()}</div>
       <div><${Listeners}/></div>
+      <div><${Relays}/></div>
       <div><${Pinger}/></div>
     </main>`
     :
