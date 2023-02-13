@@ -1,5 +1,5 @@
 const config = window.hsyncConfig;
-const { preact, apiFetch } = config.libs;
+const { preact, apiFetch, debug } = config.libs;
 const { html, useState, useEffect } = preact;
 
 export function Relays () {
@@ -14,7 +14,7 @@ export function Relays () {
   useEffect(() => {
     const getRelays = async () => {
       const results = await apiFetch.post('/srpc', {method: 'getSocketRelays', params: []});
-      console.log('results', results);
+      debug('results', results);
       setRelays(results);
     }
     getRelays();
@@ -52,7 +52,7 @@ export function Relays () {
     <div class="card-body" style="width: 90%">
       <h4 class="card-title">RELAYS</h4>
       <h6 class="card-title">Recieve inbound tcp sockets requests and relays to a target host (usually localhost) and port</h6>
-      <h6 class="card-title">This is useful for sharing a service that the hsync client has access to.</h6>
+      <h6 class="card-title">This is useful for sharing a service that this hsync client has access to.</h6>
       ${updating ? html`<div class="spinner-border text-primary" role="status">
         <span class="visually-hidden">Loading...</span>
         </div>` : ''}
@@ -67,7 +67,7 @@ export function Relays () {
           <table style="width: 90%;">
             <thead>
               <tr border="1">
-                <th>port</th><th>host</th><th>target port</th>
+                <th>inbound port</th><th>target host</th><th>target port</th>
               </tr>
             </thead>
             <tbody>
@@ -91,7 +91,7 @@ export function Relays () {
         </div>
       `: ''}
       <div class="mb-3">
-        <input type="number" class="form-control" placeholder="port" onInput=${portInput} value=${port} />
+        <input type="number" class="form-control" placeholder="inbound hsync port" onInput=${portInput} value=${port} />
         <input type="hostName" class="form-control" placeholder="target host name" onInput=${hostNameInput} value=${hostName} />
         <input type="number" class="form-control" placeholder="target port" onInput=${targetPortInput} value=${targetPort} />
       </div>

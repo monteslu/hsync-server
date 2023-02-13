@@ -1,5 +1,5 @@
 const config = window.hsyncConfig;
-const { preact, apiFetch } = config.libs;
+const { preact, apiFetch, debug } = config.libs;
 const { html, useState, useEffect } = preact;
 
 export function Listeners () {
@@ -14,7 +14,7 @@ export function Listeners () {
   useEffect(() => {
     const getListeners = async () => {
       const results = await apiFetch.post('/srpc', {method: 'getSocketListeners', params: []});
-      console.log('results', results);
+      debug('results', results);
       setListeners(results);
     }
     getListeners();
@@ -65,7 +65,7 @@ export function Listeners () {
           <table style="width: 90%;">
             <thead>
               <tr border="1">
-                <th>port</th><th>host</th><th>target port</th>
+                <th>local port</th><th>target host</th><th>target port</th>
               </tr>
             </thead>
             <tbody>
@@ -89,7 +89,7 @@ export function Listeners () {
         </div>
       `: ''}
       <div class="mb-3">
-        <input type="number" class="form-control" placeholder="port" onInput=${portInput} value=${port} />
+        <input type="number" class="form-control" placeholder="local listening port" onInput=${portInput} value=${port} />
         <input type="hostName" class="form-control" placeholder="taget hsync host" onInput=${hostNameInput} value=${hostName} />
         <input type="number" class="form-control" placeholder="target port" onInput=${targetPortInput} value=${targetPort} />
       </div>

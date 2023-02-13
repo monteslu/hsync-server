@@ -9,6 +9,7 @@ const sockets = require('./lib/socket-map');
 const BAD_GATEWAY = require('./lib/bad-gateway');
 const { auth, dyns } = require('./lib/auth');
 const config = require('./config');
+const { url } = require('inspector');
 
 const clients = {};
 
@@ -42,7 +43,7 @@ function createClientPeer(client) {
       return a + b;
     },
     setHsyncPeerKey: (peerName, key) => {
-      console.log('setting peer key', peerName, key);
+      debug('setting peer key', peerName, key);
     }
   };
   const { hostName } = client;
@@ -161,9 +162,9 @@ const aedes = Aedes({
         } else {
           try {
             const fullMsg = JSON.parse(payload.toString());
-            console.log('rpc from client to hsync-server', fullMsg);
+            debug('rpc from client to hsync-server', fullMsg);
           } catch (e) {
-            console.log('error parsing', e);
+            debug('error parsing', e);
             callback(e);
           }
           
@@ -255,14 +256,19 @@ function publish(topic, payload) {
   });
 }
 
-async function rpcToClient(hostName, methodName, ...rest) {
-  const { peer } = clients[hostName];
+async function rpcToClient(hostname, methodName, ...rest) {
+  if (!clients[hostname]) {
+    return boom.notFound();
+  }
+  const { peer } = clients[hostname];
   try {
+    // debug('rpcToClient', hostname, methodName, rest);
     const result = await peer.methods[methodName](...rest);
+    debug('rpcToClient result', result);
     return result;
   } catch(e) {
     if (e.code === 504) {
-      throw boom.gatewayTimeout(`RPC Timeout to ${hostName} client`);
+      throw boom.gatewayTimeout(`RPC Timeout to ${hostname} client`);
     }
     else if (e.message) {
       throw boom.notImplemented(e.message);
@@ -271,21 +277,30 @@ async function rpcToClient(hostName, methodName, ...rest) {
   }
 }
 
-async function peerRpcToClient(hostName, msg) {
-  const client = clients[hostName];
-  console.log('host msg', hostName, msg);
+async function peerRpcToClient(msg) {
+  debug('peerRpcToClient msg', msg);
+  const toUrl = new URL(msg.toHost);
+  const fromUrl = new URL(msg.fromHost);
+  const toClient = clients[toUrl.hostname];
 
-  // TODO validate source
+  if (!toClient) {
+    throw new Error('Client not found', toUrl.hostname);
+  }
+
+  // debug('peerRpcToClient', toUrl, fromUrl, Object.keys(clients));
+
+  // TODO validate source (fromUrl)
 
   
   try {
-    const result = await rpcToClient(hostName, 'peerRpc', msg);
+    const result = await rpcToClient(toUrl.hostname, 'peerRpc', msg);
+    // debug('rpcToClient result', result);
     // delete rpcRequests[peer.requestId];
     return result;
   } catch(e) {
     // delete rpcRequests[peer.requestId];
     if (e.code === 504) {
-      throw boom.gatewayTimeout(`RPC Timeout to ${hostName} client`);
+      throw boom.gatewayTimeout(`RPC Timeout to ${toUrl.hostname} client`);
     }
     else if (e.message) {
       throw boom.notImplemented(e.message);
