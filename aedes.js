@@ -1,5 +1,4 @@
 const Aedes = require('aedes');
-const b64id = require('b64id');
 const rawr = require('rawr');
 const boom = require('@hapi/boom');
 
@@ -9,7 +8,6 @@ const sockets = require('./lib/socket-map');
 const BAD_GATEWAY = require('./lib/bad-gateway');
 const { auth, dyns } = require('./lib/auth');
 const config = require('./config');
-const { url } = require('inspector');
 
 const clients = {};
 
