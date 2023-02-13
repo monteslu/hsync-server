@@ -25,6 +25,7 @@
     "hapi-swagger": "^14.1.0",
     "http-parser-js": "^0.5.3",
     "joi": "^17.4.0",
+    "lodash.sample": "^4.2.1",
     "rawr": "^0.14.0",
     "webpack": "^5.75.0",
     "webpack-cli": "^5.0.1",

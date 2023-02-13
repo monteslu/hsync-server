@@ -9,6 +9,7 @@ import {
 } from 'preact/hooks';
 import htm from 'htm';
 import apiFetch from './api-fetch';
+import debug from 'debug';
 
 const html = htm.bind(h);
 
@@ -23,4 +24,5 @@ window.hsyncConfig.libs = {
   },
   htm,
   apiFetch,
+  debug,
 };

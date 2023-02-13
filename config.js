@@ -27,6 +27,11 @@ config.http = {
       credentials: true,
       origin: ['*'],
     },
+    validate: {
+      failAction: (request, h, err) => {
+        throw err;
+      }
+    }
   },
 };
 

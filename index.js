@@ -3,7 +3,8 @@ const b64id = require('b64id');
 const debug = require('debug')('hsync:info');
 const debugError = require('debug')('error');
 
-const { parseReqHeaders } = require('./lib/http-parse');
+// const { parseReqHeaders } = require('./lib/http-parse');
+const { createParser } = require('./lib/simple-parse');
 const sockets = require('./lib/socket-map');
 const { forwardWebRequest, sendCloseRequest } = require('./aedes');
 const { startHapi, handleLocalHttpRequest } = require('./hapi');
@@ -25,55 +26,67 @@ const socketServer = net.createServer((socket) => {
       debug(`→ EXTERNAL DATA ${socket.socketId}`, socket.hostName, data.length, 'parsingStarted', socket.parsingStarted, 'finished', socket.parsingFinished);
     }
 
+    const headerParser = createParser(data);
     if (!socket.parsingStarted) {
       socket.parsingStarted = true;
       const startTime = Date.now();
-      const parsed = await parseReqHeaders(data);
-      socket.parsingFinished = true;
-      debug('path', parsed.url, Date.now() - startTime);
-      if(parsed.headersFinished) {
+      
+      try {
+        const parsed = await headerParser.parse();
+        socket.parsingFinished = true;
+        debug('path', parsed.url, Date.now() - startTime);
         socket.hostName = parsed.host;
         socket.originalUrl = parsed.url;
+
         if(parsed.url.startsWith(HSYNC_CONNECT_PATH) || (parsed.url === '/favicon.ico')) {
           debug('hsync path', parsed.url);
           if (parsed.headers['upgrade']) {
             socket.hsyncClient = true;
           }
           handleLocalHttpRequest(socket, data);
-          if(socket.webQueue && socket.mqTCPSocket) {
-            socket.webQueue.forEach((d) => {
-              socket.mqTCPSocket.write(d);
-            });
-            socket.webQueue = null;
+
+          if (socket.webQueue) {
+            if(socket.mqTCPSocket) {
+              socket.webQueue.forEach((d) => {
+                socket.mqTCPSocket.write(d);
+              });
+              socket.webQueue = null;
+            }
           }
+          
           return;
         }
-      } else {
-        // come on, at least put the damn headers in the first packet, you animals
+
+        debug('regular request', socket.originalUrl, socket.hostName);
+        forwardWebRequest(socket, data, parsed);
+        if(socket.webQueue) {
+          socket.webQueue.forEach((d) => {
+            forwardWebRequest(socket, d);
+          });
+          socket.webQueue = null;
+        }
+        return;
+
+      } catch (e) {
+        debugError('could not parse', socket.socketId, e);
         socket.end();
         delete sockets[socket.socketId];
         return;
       }
-      debug('regular request', socket.originalUrl);
-      forwardWebRequest(socket, data, parsed);
-      if(socket.webQueue) {
-        socket.webQueue.forEach((d) => {
-          forwardWebRequest(socket, d);
-        });
-        socket.webQueue = null;
-      }
-      return;
 
-    } else if (socket.mqTCPSocket) {
-      return socket.mqTCPSocket.write(data);
     } else if (socket.parsingStarted && !socket.parsingFinished) {
       debug('adding data to webqueue while parsing', socket.socketId, data.length);
       socket.webQueue = socket.webQueue || [];
       socket.webQueue.push(data);
+      headerParser.addData(data);
       return;
+    } else if (socket.parsingFinished && socket.mqTCPSocket) {
+      return socket.mqTCPSocket.write(data);
+    } else if (socket.parsingFinished) {
+      debug('moar data on same con', socket.originalUrl);
+      return forwardWebRequest(socket, data);
     }
-    debug('moar data on same con', socket.originalUrl);
-    return forwardWebRequest(socket, data);
+    return;
   });
 
   socket.on('close', () => {
