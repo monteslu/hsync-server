@@ -27,7 +27,7 @@ export function Pinger () {
   };
 
   return html`
-  <div class="card" style="width: 18rem;">
+  <div class="card" style="width: 18rem; margin: 10px;">
     <div class="card-body">
       <h5 class="card-title">Client Ping</h5>
       ${pinging ? html`<div class="spinner-border text-primary" role="status">

@@ -1,5 +1,4 @@
 const Aedes = require('aedes');
-const b64id = require('b64id');
 const rawr = require('rawr');
 const boom = require('@hapi/boom');
 
@@ -9,8 +8,6 @@ const sockets = require('./lib/socket-map');
 const BAD_GATEWAY = require('./lib/bad-gateway');
 const { auth, dyns } = require('./lib/auth');
 const config = require('./config');
-
-const rpcRequests = {};
 
 const clients = {};
 
@@ -35,6 +32,43 @@ if (config.unauthedNames) {
   clearOldDyns();
 }
 
+
+
+function createClientPeer(client) {
+
+  const methods = {
+    add: (a, b) => {
+      return a + b;
+    },
+    setHsyncPeerKey: (peerName, key) => {
+      debug('setting peer key', peerName, key);
+    }
+  };
+  const { hostName } = client;
+  const transport = new EventEmitter();
+  transport.send = (msg) => {
+    if(typeof msg === 'object') {
+      msg = JSON.stringify(msg);
+    }
+    const topic = `msg/${hostName}/srpc`;
+    // debug('sending', topic, msg);
+    publish(topic, Buffer.from(msg));
+  };
+  transport.receiveData = (msg) => {
+    if (typeof msg !== 'string') {
+      msg = msg.toString();
+    }
+    if(msg) {
+      msg = JSON.parse(msg);
+    }
+    transport.emit('rpc', msg);
+  };
+
+  const peer = rawr({transport, timeout: 5000, methods});
+
+  return peer;
+}
+
 const aedes = Aedes({
 
   authenticate: async (client, username, password, callback) => {
@@ -57,6 +91,7 @@ const aedes = Aedes({
           debug('Error subscribing', msgTopic, err);
         }
       });
+      client.peer = createClientPeer(client);
       if (clients[username]) {
         try {
           clients[username].close();
@@ -68,17 +103,18 @@ const aedes = Aedes({
     }
     callback(null, authed);
   },
-  authorizePublish: (client, packet, callback) => {
-    debug('authorizePublish',  packet.topic, !!packet.payload);
+  authorizePublish: async (client, packet, callback) => {
+    const { payload, topic} = packet;
+    debug('authorizePublish',  topic, !!payload);
     
-    if (packet.topic) {
-      const topicSegments = packet.topic.split('/');
+    if (topic) {
+      const topicSegments = topic.split('/');
       const [name, host, socketId] = topicSegments;
       if (name === 'reply') {
         if (socketId) {
           const socket = sockets[socketId];
           if (socket) {
-            socket.write(packet.payload);
+            socket.write(payload);
           }
         }
       } else if (name === 'close') {
@@ -103,15 +139,33 @@ const aedes = Aedes({
           return;
         }
 
-      } else if (name === 'ssrpc') {
+      } else if (name === 'srpc') {
+        const msgFrom = host;
+        if (msgFrom !== client.hostName) {
+          debug('cant rpc to server for someone else', msgFrom, client.hostName);
+          callback(new Error('cant rpc to server for someone else'));
+          return;
+        } else {
+          client.peer.transport.receiveData(payload);
+          return;
+        }
+
+      } else if (name === 'rpc') {
         const msgFrom = host;
         const requestId = socketId;
         if (msgFrom !== client.hostName) {
           debug('cant rpc to server for someone else', msgFrom, client.hostName, requestId);
           callback(new Error('cant rpc to server for someone else'));
           return;
-        } else if (rpcRequests[requestId]) {
-          rpcRequests[requestId].transport.receiveData(packet.payload);
+        } else {
+          try {
+            const fullMsg = JSON.parse(payload.toString());
+            debug('rpc from client to hsync-server', fullMsg);
+          } catch (e) {
+            debug('error parsing', e);
+            callback(e);
+          }
+          
           return;
         }
 
@@ -122,7 +176,7 @@ const aedes = Aedes({
   },
 
   authorizeSubscribe: (client, sub, callback) => {
-    // debug('authorizeSubscribe', client.id, sub.topic);
+    debug('authorizeSubscribe', client.id, sub.topic);
     callback(null, sub);
   }
 });
@@ -192,33 +246,6 @@ function forwardWebRequest(socket, data, info) {
   return publish(topic, data);
 }
 
-function createRawrTransport(hostName, requestId) {
-  const transport = new EventEmitter();
-  transport.send = (msg) => {
-    if(typeof msg === 'object') {
-      msg = JSON.stringify(msg);
-    }
-    const topic = `msg/${hostName}/${requestId}/ssrpc`;
-    // debug('sending', topic, msg);
-    publish(topic, Buffer.from(msg));
-  };
-  transport.receiveData = (msg) => {
-    if(msg) {
-      msg = JSON.parse(msg);
-    }
-    transport.emit('rpc', msg);
-  };
-  return transport;
-}
-
-function getRPCPeer(hostName, timeout = 5000) {
-  const requestId = b64id.generateId();
-  const peer = rawr({transport: createRawrTransport(hostName, requestId), timeout});
-  peer.requestId = requestId;
-  rpcRequests[requestId] = peer;
-  return peer;
-}
-
 function publish(topic, payload) {
   aedes.publish({ topic, payload, qos: 0, retain: false }, (err) => {
     if (err) {
@@ -227,16 +254,19 @@ function publish(topic, payload) {
   });
 }
 
-async function rpcToClient(hostName, methodName, ...rest) {
-  const peer = getRPCPeer(hostName);
+async function rpcToClient(hostname, methodName, ...rest) {
+  if (!clients[hostname]) {
+    return boom.notFound();
+  }
+  const { peer } = clients[hostname];
   try {
+    // debug('rpcToClient', hostname, methodName, rest);
     const result = await peer.methods[methodName](...rest);
-    delete rpcRequests[peer.requestId];
+    debug('rpcToClient result', result);
     return result;
   } catch(e) {
-    delete rpcRequests[peer.requestId];
     if (e.code === 504) {
-      throw boom.gatewayTimeout(`RPC Timeout to ${hostName} client`);
+      throw boom.gatewayTimeout(`RPC Timeout to ${hostname} client`);
     }
     else if (e.message) {
       throw boom.notImplemented(e.message);
@@ -245,10 +275,44 @@ async function rpcToClient(hostName, methodName, ...rest) {
   }
 }
 
+async function peerRpcToClient(msg) {
+  debug('peerRpcToClient msg', msg);
+  const toUrl = new URL(msg.toHost);
+  const fromUrl = new URL(msg.fromHost);
+  const toClient = clients[toUrl.hostname];
+
+  if (!toClient) {
+    throw new Error('Client not found', toUrl.hostname);
+  }
+
+  // debug('peerRpcToClient', toUrl, fromUrl, Object.keys(clients));
+
+  // TODO validate source (fromUrl)
+
+  
+  try {
+    const result = await rpcToClient(toUrl.hostname, 'peerRpc', msg);
+    // debug('rpcToClient result', result);
+    // delete rpcRequests[peer.requestId];
+    return result;
+  } catch(e) {
+    // delete rpcRequests[peer.requestId];
+    if (e.code === 504) {
+      throw boom.gatewayTimeout(`RPC Timeout to ${toUrl.hostname} client`);
+    }
+    else if (e.message) {
+      throw boom.notImplemented(e.message);
+    }
+    throw e;
+  }
+}
+
+
 module.exports = {
   aedes,
   forwardWebRequest,
   publish,
   sendCloseRequest,
   rpcToClient,
+  peerRpcToClient,
 };
