@@ -262,7 +262,7 @@ async function rpcToClient(hostname, methodName, ...rest) {
   try {
     // debug('rpcToClient', hostname, methodName, rest);
     const result = await peer.methods[methodName](...rest);
-    debug('rpcToClient result', result);
+    debug('rpcToClient result from await peer.methods: ', result);
     return result;
   } catch(e) {
     if (e.code === 504) {
@@ -276,7 +276,7 @@ async function rpcToClient(hostname, methodName, ...rest) {
 }
 
 async function peerRpcToClient(msg) {
-  debug('peerRpcToClient msg', msg);
+  debug('peerRpcToClient msg:', msg, msg.method, typeof msg, msg.msg, typeof msg.msg);
   const toUrl = new URL(msg.toHost);
   const fromUrl = new URL(msg.fromHost);
   const toClient = clients[toUrl.hostname];
@@ -291,11 +291,18 @@ async function peerRpcToClient(msg) {
 
   
   try {
+    if (!msg.id) {
+      const { peer } = clients[toUrl.hostname];
+      peer.transport.send(msg);
+      // rpcToClient(toUrl.hostname, 'peerRpc', msg);
+      return {method: msg.msg.method, params: []};
+    }
     const result = await rpcToClient(toUrl.hostname, 'peerRpc', msg);
-    // debug('rpcToClient result', result);
+    debug('peerRpcToClient result', result);
     // delete rpcRequests[peer.requestId];
     return result;
   } catch(e) {
+    debug('error with peerRpcToClient', e);
     // delete rpcRequests[peer.requestId];
     if (e.code === 504) {
       throw boom.gatewayTimeout(`RPC Timeout to ${toUrl.hostname} client`);
