@@ -34,7 +34,7 @@ const socketServer = net.createServer((socket) => {
       try {
         const parsed = await headerParser.parse();
         socket.parsingFinished = true;
-        debug('path', parsed.url, Date.now() - startTime);
+        debug('path', parsed.url, Date.now() - startTime, socket.socketId);
         socket.hostName = parsed.host;
         socket.originalUrl = parsed.url;
 
@@ -57,13 +57,14 @@ const socketServer = net.createServer((socket) => {
           return;
         }
 
-        debug('regular request', socket.originalUrl, socket.hostName);
+        debug('regular request', socket.originalUrl, socket.hostName, socket.socketId);
         forwardWebRequest(socket, data, parsed);
-        if(socket.webQueue) {
-          socket.webQueue.forEach((d) => {
+        if(socket.webQueue && socket.webQueue.length) {
+          socket.webQueue.forEach((d, idx) => {
+            debug('clearing web queue', parsed.url, socket.socketId, idx, socket.webQueue.length);
             forwardWebRequest(socket, d);
           });
-          socket.webQueue = null;
+          socket.webQueue = [];
         }
         return;
 
@@ -83,7 +84,7 @@ const socketServer = net.createServer((socket) => {
     } else if (socket.parsingFinished && socket.mqTCPSocket) {
       return socket.mqTCPSocket.write(data);
     } else if (socket.parsingFinished) {
-      debug('moar data on same con', socket.originalUrl);
+      debug('more data on same con', socket.originalUrl, socket.socketId);
       return forwardWebRequest(socket, data);
     }
     return;
