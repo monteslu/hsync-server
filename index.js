@@ -52,28 +52,11 @@ const socketServer = net.createServer((socket) => {
           }
 
           handleLocalHttpRequest(socket, toSend);
-
-          // if (socket.webQueue) {
-          //   if(socket.mqTCPSocket) {
-          //     socket.webQueue.forEach((d) => {
-          //       socket.mqTCPSocket.write(d);
-          //     });
-          //     socket.webQueue = null;
-          //   }
-          // }
-          
           return;
         }
 
         debug('regular request', socket.originalUrl, socket.hostName, socket.socketId);
         forwardWebRequest(socket, toSend, parsed);
-        // if(socket.webQueue && socket.webQueue.length) {
-        //   socket.webQueue.forEach((d, idx) => {
-        //     debug('clearing web queue', parsed.url, socket.socketId, idx, socket.webQueue.length);
-        //     forwardWebRequest(socket, d);
-        //   });
-        //   socket.webQueue = [];
-        // }
         return;
 
       } catch (e) {
