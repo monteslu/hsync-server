@@ -38,34 +38,25 @@ const socketServer = net.createServer((socket) => {
         socket.hostName = parsed.host;
         socket.originalUrl = parsed.url;
 
+        let toSend = data;
+        if (socket.webQueue && socket.webQueue.length) {
+          toSend = Buffer.concat([data, ...socket.webQueue]);
+          debug('adding web queue to data', socket.socketId, socket.webQueue.length, toSend.length);
+          socket.webQueue = [];
+        }
+
         if(parsed.url.startsWith(HSYNC_CONNECT_PATH) || (parsed.url === '/favicon.ico')) {
           debug('hsync path', parsed.url);
           if (parsed.headers['upgrade']) {
             socket.hsyncClient = true;
           }
-          handleLocalHttpRequest(socket, data);
 
-          if (socket.webQueue) {
-            if(socket.mqTCPSocket) {
-              socket.webQueue.forEach((d) => {
-                socket.mqTCPSocket.write(d);
-              });
-              socket.webQueue = null;
-            }
-          }
-          
+          handleLocalHttpRequest(socket, toSend);
           return;
         }
 
         debug('regular request', socket.originalUrl, socket.hostName, socket.socketId);
-        forwardWebRequest(socket, data, parsed);
-        if(socket.webQueue && socket.webQueue.length) {
-          socket.webQueue.forEach((d, idx) => {
-            debug('clearing web queue', parsed.url, socket.socketId, idx, socket.webQueue.length);
-            forwardWebRequest(socket, d);
-          });
-          socket.webQueue = [];
-        }
+        forwardWebRequest(socket, toSend, parsed);
         return;
 
       } catch (e) {
