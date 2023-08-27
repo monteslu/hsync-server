@@ -73,13 +73,13 @@ export function Listeners () {
                 return html`
                   <tr>
                     <td>
-                      ${r.info.port}
+                      ${r.port}
                     </td>
                     <td>
-                      ${r.info.hostName}
+                      ${r.targetHost}
                     </td>
                     <td>
-                      ${r.info.targetPort}
+                      ${r.targetPort}
                     </td>
                   </tr>
                 `

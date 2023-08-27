@@ -10,6 +10,8 @@ export function Relays () {
   const [port, setPort] = useState(null);
   const [targetPort, setTargetPort] = useState(null);
   const [hostName, setHostName] = useState(null);
+  const [whitelist, setWhitelist] = useState(null);
+  const [blacklist, setBlacklist] = useState(null);
 
   useEffect(() => {
     const getRelays = async () => {
@@ -30,6 +32,14 @@ export function Relays () {
 
   const hostNameInput = (e) => {
     setHostName(e.target.value);
+  };
+
+  const whitelistInput = (e) => {
+    setWhitelist(e.target.value);
+  };
+
+  const blacklistInput = (e) => {
+    setBlacklist(e.target.value);
   };
 
   const addRelay = async () => {
@@ -75,13 +85,19 @@ export function Relays () {
                 return html`
                   <tr>
                     <td>
-                      ${r.info.port}
+                      ${r.port}
                     </td>
                     <td>
-                      ${r.info.hostName}
+                      ${r.hostName}
                     </td>
                     <td>
-                      ${r.info.targetPort}
+                      ${r.targetPort}
+                    </td>
+                    <td>
+                      ${r.whitelist}
+                    </td>
+                    <td>
+                      ${r.blacklist}
                     </td>
                   </tr>
                 `
@@ -94,6 +110,8 @@ export function Relays () {
         <input type="number" class="form-control" placeholder="inbound hsync port" onInput=${portInput} value=${port} />
         <input type="hostName" class="form-control" placeholder="target host name" onInput=${hostNameInput} value=${hostName} />
         <input type="number" class="form-control" placeholder="target port" onInput=${targetPortInput} value=${targetPort} />
+        <input type="text" class="form-control" placeholder="whitelist" onInput=${whitelistInput} value=${whitelist} />
+        <input type="text" class="form-control" placeholder="blacklist" onInput=${blacklistInput} value=${blacklist} />
       </div>
       <div class="mdl-card__supporting-text">
         <button 
