@@ -13,12 +13,13 @@ export function Relays () {
   const [whitelist, setWhitelist] = useState(null);
   const [blacklist, setBlacklist] = useState(null);
 
+  const getRelays = async () => {
+    const results = await apiFetch.post('/srpc', {method: 'getSocketRelays', params: []});
+    debug('results', results);
+    setRelays(results);
+  }
+
   useEffect(() => {
-    const getRelays = async () => {
-      const results = await apiFetch.post('/srpc', {method: 'getSocketRelays', params: []});
-      debug('results', results);
-      setRelays(results);
-    }
     getRelays();
   }, [])
 
@@ -59,6 +60,7 @@ export function Relays () {
       });
       setRpcResult(pingVal);
       setUpdating(false);
+      getRelays();
     } catch (e) {
       setUpdating(false);
       setError(e);
