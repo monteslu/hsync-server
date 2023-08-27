@@ -47,7 +47,16 @@ export function Relays () {
     setRpcResult('');
     setError('');
     try {
-      const pingVal = await apiFetch.post('/srpc', {method: 'addSocketRelay', params: [port, hostName, targetPort]});
+      const pingVal = await apiFetch.post('/srpc', {
+        method: 'addSocketRelay',
+        params: {
+          port,
+          targetHost: hostName,
+          targetPort,
+          whitelist,
+          blacklist,
+        },
+      });
       setRpcResult(pingVal);
       setUpdating(false);
     } catch (e) {

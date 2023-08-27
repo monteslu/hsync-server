@@ -37,7 +37,14 @@ export function Listeners () {
     setRpcResult('');
     setError('');
     try {
-      const pingVal = await apiFetch.post('/srpc', {method: 'addSocketListener', params: [port, hostName, targetPort]});
+      const pingVal = await apiFetch.post('/srpc', {
+        method: 'addSocketListener',
+        params: {
+          port,
+          targetHost: hostName,
+          targetPort,
+        },
+      });
       setRpcResult(pingVal);
       setUpdating(false);
     } catch (e) {
