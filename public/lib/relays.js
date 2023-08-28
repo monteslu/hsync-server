@@ -55,9 +55,9 @@ export function Relays () {
         whitelist,
         blacklist,
       });
+      await getRelays();
       setRpcResult(pingVal);
       setUpdating(false);
-      getRelays();
     } catch (e) {
       setUpdating(false);
       setError(e);

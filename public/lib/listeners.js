@@ -43,9 +43,9 @@ export function Listeners () {
         targetHost: hostName,
         targetPort,
       });
+      await getListeners();
       setRpcResult(pingVal);
       setUpdating(false);
-      getListeners();
     } catch (e) {
       setUpdating(false);
       setError(e);
