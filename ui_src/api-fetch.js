@@ -53,4 +53,7 @@ apiFetch.post = (url, body) => {
   return apiFetch(url, { method: 'POST', body });
 }
 
+apiFetch.srpc = (method, ...params) => {
+  return apiFetch.post('/_hs/rpc', { method, params });
+}
 

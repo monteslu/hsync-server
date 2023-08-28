@@ -14,7 +14,7 @@ export function Relays () {
   const [blacklist, setBlacklist] = useState(null);
 
   const getRelays = async () => {
-    const results = await apiFetch.post('/srpc', {method: 'getSocketRelays', params: []});
+    const results = await apiFetch.srpc('getSocketRelays');
     debug('results', results);
     setRelays(results);
   }
@@ -48,15 +48,12 @@ export function Relays () {
     setRpcResult('');
     setError('');
     try {
-      const pingVal = await apiFetch.post('/srpc', {
-        method: 'addSocketRelay',
-        params: [{
-          port,
-          targetHost: hostName,
-          targetPort,
-          whitelist,
-          blacklist,
-        }],
+      const pingVal = await apiFetch.srpc('addSocketRelay', {
+        port,
+        targetHost: hostName,
+        targetPort,
+        whitelist,
+        blacklist,
       });
       setRpcResult(pingVal);
       setUpdating(false);
@@ -88,7 +85,11 @@ export function Relays () {
           <table style="width: 90%;">
             <thead>
               <tr border="1">
-                <th>inbound port</th><th>target host</th><th>target port</th>
+                <th>inbound port</th>
+                <th>target host</th>
+                <th>target port</th>
+                <th>whitelist</th>
+                <th>blacklist</th>
               </tr>
             </thead>
             <tbody>
