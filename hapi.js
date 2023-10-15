@@ -9,26 +9,32 @@ const Handlebars = require('handlebars');
 const debug = require('debug')('errors');
 const debugHttp = require('debug')('hsync:http');
 
-
-const config = require('./config');
-const { aedes } = require('./aedes');
+const { launchAedes } = require('./aedes');
 const sockets = require('./lib/socket-map');
-const Routes = require('./lib/routes');
+const getRoutes = require('./lib/routes');
 
-const server = Hapi.server(config.http);
+async function startHapi(config) {
+  const server = Hapi.server(config.http);
+  debugHttp('hapi server created', config.http, config.httpExt);
+  const plugins = [
+    CookieAuth,
+    Inert,
+    Vision,
+    {
+      plugin: HapiSwagger,
+      // eslint-disable-next-line
+      options: config.swaggerOptions
+    },
+  ];
 
-async function startHapi() {
+  if (config.httpExt && config.httpExt.plugins) {
+    config.httpExt.plugins.forEach((plugin) => {
+      plugins.push(plugin);
+    });
+  }
+
   try {
-    await server.register([
-      CookieAuth,
-      Inert,
-      Vision,
-      {
-        plugin: HapiSwagger,
-        // eslint-disable-next-line
-        options: config.swaggerOptions
-      },
-    ]);
+    await server.register(plugins);
   } catch (error) {
     debug(error);
     process.exit(1);
@@ -36,10 +42,16 @@ async function startHapi() {
 
   server.auth.strategy('auth', 'cookie', {
     cookie: config.cookies,
-    validateFunc: async (request, session) => {
+    validateFunc: async () => {
       return { valid: true };
     }
   });
+
+  if (config.httpExt && config.httpExt.authStrategies) {
+    config.httpExt.authStrategies.forEach((strategy) => {
+      server.auth.strategy(strategy.name, strategy.scheme, strategy.options);
+    });
+  }
 
   server.views({
     engines: {
@@ -51,7 +63,16 @@ async function startHapi() {
     defaultExtension: 'hbs',
   });
 
-  server.route(Routes);
+  const routes = getRoutes(config);
+
+  if (config.httpExt && config.httpExt.routes) {
+    config.httpExt.routes.forEach((route) => {
+      route.path = `/${config.hsyncBase}/x${route.path}`;
+      routes.push(route);
+      debugHttp('adding httpExt routes', route.path);
+    });
+  }
+  server.route(routes);
 
   try {
     await server.start();
@@ -60,35 +81,38 @@ async function startHapi() {
     debug(err);
     return err;
   }
+
+  const aedes = await launchAedes(config);
+
+  WS.createServer({ server: server.listener }, aedes.handle);
+
+  function handleLocalHttpRequest(socket, data) {
+    // console.log('hanlding local', data);
+    // TODO would be a hell of a lot cooler if it could just pipe data instead of making a socket here.
+    const mqTCPSocket = new net.Socket();
+    mqTCPSocket.connect(config.http.port, '127.0.0.1', () => {
+      debugHttp(`CONNECTED TO LOCAL ${socket.hsyncClient ? 'MQTT' : 'HTTP'} SERVER`, socket.socketId, socket.hostName);
+    });
+
+    mqTCPSocket.on('data', (d) => {
+      // debugHttp(`← to MQTT CLIENT ${socket.socketId}`, socket.hostName, data.length);
+      socket.write(d);
+    });
+    mqTCPSocket.on('close', () => {
+      debugHttp(`LOCAL ${socket.hsyncClient ? 'MQTT' : 'HTTP'} CONNECTION CLOSED`, socket.socketId, socket.hostName);
+      socket.end();
+      delete sockets[socket.socketId];
+    });
+    socket.mqTCPSocket = mqTCPSocket;
+    // debugHttp(`→ to MQTT SERVER ${socket.socketId}`, socket.hostName);
+    socket.mqTCPSocket.write(data);
+    return socket;
+  }
+  return {
+    handleLocalHttpRequest,
+    aedes,
+    server,
+  };
 }
 
-WS.createServer({server: server.listener}, aedes.handle);
-
-
-function handleLocalHttpRequest(socket, data) {
-  // TODO would be a hell of a lot cooler if it could just pipe data instead of making a socket here.
-  const mqTCPSocket = new net.Socket();
-  mqTCPSocket.connect(config.http.port, '127.0.0.1', () => {
-    debugHttp(`CONNECTED TO LOCAL ${socket.hsyncClient ? 'MQTT' : 'HTTP'} SERVER`, socket.socketId, socket.hostName);
-  });
-
-  mqTCPSocket.on('data', (data) => {
-    //debugHttp(`← to MQTT CLIENT ${socket.socketId}`, socket.hostName, data.length);
-    socket.write(data);
-  });
-  mqTCPSocket.on('close', () => {
-    debugHttp(`LOCAL ${socket.hsyncClient ? 'MQTT' : 'HTTP'} CONNECTION CLOSED`, socket.socketId, socket.hostName);
-    socket.end();
-    delete sockets[socket.socketId];
-  });
-  socket.mqTCPSocket = mqTCPSocket;
-  // debugHttp(`→ to MQTT SERVER ${socket.socketId}`, socket.hostName);
-  socket.mqTCPSocket.write(data);
-  return socket;
-}
-
-module.exports = {
-  startHapi,
-  server,
-  handleLocalHttpRequest,
-};
+module.exports = startHapi;

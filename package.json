@@ -1,13 +1,14 @@
 {
   "name": "hsync-server",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "creates unlimited public web URLs for your web servers no matter where they may be running",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon --inspect index.js",
-    "dev-brk": "nodemon --inspect-brk index.js",
-    "start": "node index.js",
+    "lint": "eslint . --ext .js",
+    "dev": "nodemon --inspect run.js",
+    "dev-brk": "nodemon --inspect-brk run.js",
+    "start": "node run.js",
     "build": "webpack"
   },
   "author": "",
@@ -32,8 +33,11 @@
     "websocket-stream": "^5.5.2"
   },
   "devDependencies": {
+    "eslint": "^7.32.0",
+    "eslint-config-airbnb-base": "^14.2.1",
+    "eslint-plugin-import": "^2.25.2",
     "htm": "^3.0.4",
-    "nodemon": "^2.0.7",
+    "nodemon": "^3.0.1",
     "preact": "^10.5.12"
   }
 }
