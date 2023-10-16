@@ -51,6 +51,7 @@ config.swaggerOptions = {
   basePath: `/${config.hsyncBase}`,
   documentationPath: `/${config.hsyncBase}/documentation`,
   swaggerUIPath: `/${config.hsyncBase}/swaggerui/`,
+  jsonPath: `/${config.hsyncBase}/swagger.json`,
   pathPrefixSize: 2,
 };
 
