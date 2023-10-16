@@ -265,14 +265,37 @@ async function rpcToClient(hostname, methodName, ...rest) {
   }
 }
 
+async function notifyToClient(hostname, methodName, ...rest) {
+  if (!clients[hostname]) {
+    return boom.notFound();
+  }
+  const { peer } = clients[hostname];
+  try {
+    debug('notifyToClient', hostname, methodName);
+    peer.notifiers[methodName](...rest);
+    return 'ok';
+  } catch (e) {
+    if (e.code === 504) {
+      throw boom.gatewayTimeout(`RPC Timeout to ${hostname} client`);
+    } else if (e.message) {
+      throw boom.notImplemented(e.message);
+    }
+    throw e;
+  }
+}
+
 async function peerRpcToClient(msg) {
   debug('peerRpcToClient msg', msg);
+  // debug('hosts', msg.toHost, msg.fromHost);
   const toUrl = new URL(msg.toHost);
   // const fromUrl = new URL(msg.fromHost);
+
+  // debug('to', toUrl.hostname, 'from', fromUrl.hostname);
   const toClient = clients[toUrl.hostname];
 
   if (!toClient) {
-    throw new Error('Client not found', toUrl.hostname);
+    debug('no client found', toUrl.hostname);
+    throw boom.notFound('Client not found', toUrl.hostname);
   }
 
   // TODO validate source (fromUrl)
@@ -293,11 +316,38 @@ async function peerRpcToClient(msg) {
   }
 }
 
+async function peerNotifyToClient(toHost, methodName, msg) {
+  debug('peerNotifyToClient msg', toHost, methodName);
+  // debug('to', toUrl.hostname, 'from', fromUrl.hostname);
+  const toClient = clients[toHost];
+
+  if (!toClient) {
+    debug('no client found', toHost);
+    throw boom.notFound('Client not found', toHost);
+  }
+
+  try {
+    const result = await notifyToClient(toHost, methodName, msg);
+    // debug('rpcToClient result', result);
+    // delete rpcRequests[peer.requestId];
+    return result;
+  } catch (e) {
+    // delete rpcRequests[peer.requestId];
+    if (e.code === 504) {
+      throw boom.gatewayTimeout(`RPC Timeout to ${toHost} client`);
+    } else if (e.message) {
+      throw boom.notImplemented(e.message);
+    }
+    throw e;
+  }
+}
+
 module.exports = {
   forwardWebRequest,
   publish,
   sendCloseRequest,
   rpcToClient,
   peerRpcToClient,
+  peerNotifyToClient,
   launchAedes,
 };
