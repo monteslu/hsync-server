@@ -1,6 +1,6 @@
 {
   "name": "hsync-server",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "creates unlimited public web URLs for your web servers no matter where they may be running",
   "main": "index.js",
   "scripts": {

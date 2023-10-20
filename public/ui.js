@@ -15,8 +15,12 @@ const styles = {
 function App () {
   const [creds, setCreds] = useState(config.creds);
   const [loggingIn, setLoggingIn] = useState(false);
-  const [secret, setSecret] = useState('');
+  const urlParams = new URLSearchParams(window.location.search);
+  const token = urlParams.get('token');
+  const [secret, setSecret] = useState(token || '');
   const [error, setError] = useState('');
+  const [triedToken, setTriedToken] = useState(false);
+  
 
   const textInput = (e) => {
     setSecret(e.target.value);
@@ -31,14 +35,27 @@ function App () {
     setError('');
     setLoggingIn(true);
     try {
-      await apiFetch.post('/auth', {secret});
+      const payload = {secret};
+      if (token) {
+        setTriedToken(true);
+        payload.type = 'token';
+      }
+      await apiFetch.post('/auth', payload);
+      document.location.href = `/${window.hsyncConfig.base}/admin`;
       setCreds(true);
       setLoggingIn(false);
     } catch (e) {
       setLoggingIn(false);
       setError(e);
+      if (triedToken) {
+        document.location.href = `/${window.hsyncConfig.base}/admin`;
+      }
     }
   };
+
+  if (token) {
+    auth();
+  }
 
   return html`
   <div>
