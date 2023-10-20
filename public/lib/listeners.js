@@ -12,7 +12,7 @@ export function Listeners () {
   const [hostName, setHostName] = useState(null);
 
   const getListeners = async () => {
-    const results = await apiFetch.srpc('getSocketListeners');
+    const results = await apiFetch.post('/srpc', {method: 'getSocketListeners', params: []});
     debug('results', results);
     setListeners(results);
   }
@@ -38,13 +38,14 @@ export function Listeners () {
     setRpcResult('');
     setError('');
     try {
-      const pingVal = await apiFetch.srpc('addSocketListener', {
+      const params = [{
         port,
         targetHost: hostName,
         targetPort,
-      });
+      }];
+      const retVal = await apiFetch.post('/srpc', {method: 'addSocketListener', params});
       await getListeners();
-      setRpcResult(pingVal);
+      setRpcResult(retVal);
       setUpdating(false);
     } catch (e) {
       setUpdating(false);
