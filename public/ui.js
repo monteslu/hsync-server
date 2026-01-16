@@ -12,7 +12,7 @@ const styles = {
   },
 };
 
-function App () {
+function App() {
   const [creds, setCreds] = useState(config.creds);
   const [loggingIn, setLoggingIn] = useState(false);
   const urlParams = new URLSearchParams(window.location.search);
@@ -20,7 +20,6 @@ function App () {
   const [secret, setSecret] = useState(token || '');
   const [error, setError] = useState('');
   const [triedToken, setTriedToken] = useState(false);
-  
 
   const textInput = (e) => {
     setSecret(e.target.value);
@@ -35,7 +34,7 @@ function App () {
     setError('');
     setLoggingIn(true);
     try {
-      const payload = {secret};
+      const payload = { secret: secret.trim() };
       if (token) {
         setTriedToken(true);
         payload.type = 'token';
@@ -58,39 +57,36 @@ function App () {
   }
 
   return html`
-  <div>
-  ${creds ? 
-    html`
-    <div class="navbar navbar-dark bg-dark shadow-sm">
-      <div class="container">
-        <div class="navbar-brand d-flex align-items-center">
-          <strong>${hsyncConfig.hostName}</strong>
-        </div>
-        <div><button onClick=${logout} class="btn btn-danger">log out</button></div>
-      </div>
+    <div>
+      ${creds
+        ? html` <div class="navbar navbar-dark bg-dark shadow-sm">
+              <div class="container">
+                <div class="navbar-brand d-flex align-items-center">
+                  <strong>${hsyncConfig.hostName}</strong>
+                </div>
+                <div><button onClick=${logout} class="btn btn-danger">log out</button></div>
+              </div>
+            </div>
+            <main style=${styles.main}>
+              <div>${error?.message || error?.toString()}</div>
+              <div><${Listeners} /></div>
+              <div><${Relays} /></div>
+              <div><${Pinger} /></div>
+            </main>`
+        : html` <div style=${{ margin: '15px' }}>
+            <div class="mb-3">
+              <input
+                type="password"
+                class="form-control"
+                id="exampleFormControlInput1"
+                placeholder="secret"
+                onInput=${textInput}
+                value=${secret}
+              />
+            </div>
+            <button class="btn btn-primary" disabled=${loggingIn} onClick=${auth}>Log in</button>
+          </div>`}
     </div>
-    <main style=${styles.main}>
-      <div>${error?.message || error?.toString()}</div>
-      <div><${Listeners}/></div>
-      <div><${Relays}/></div>
-      <div><${Pinger}/></div>
-    </main>`
-    :
-    html`
-    <div style=${{margin: '15px'}}>
-      <div class="mb-3">
-        <input type=password class="form-control" id="exampleFormControlInput1" placeholder="secret" onInput=${textInput} value=${secret} />
-      </div>
-      <button 
-          class="btn btn-primary"
-          disabled=${loggingIn}
-          onClick=${auth}
-        >
-          Log in
-        </button>
-    </div>` 
-    }
-  </div>
   `;
 }
 
