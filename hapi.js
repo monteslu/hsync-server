@@ -48,7 +48,7 @@ async function startHapi(config) {
 
   server.auth.strategy('auth', 'cookie', {
     cookie: config.cookies,
-    validateFunc: async () => {
+    validate: async () => {
       return { valid: true };
     },
   });
