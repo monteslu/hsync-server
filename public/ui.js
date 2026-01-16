@@ -34,7 +34,7 @@ function App() {
     setError('');
     setLoggingIn(true);
     try {
-      const payload = { secret };
+      const payload = { secret: secret.trim() };
       if (token) {
         setTriedToken(true);
         payload.type = 'token';
