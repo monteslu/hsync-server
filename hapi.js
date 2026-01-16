@@ -1,17 +1,24 @@
-const net = require('net');
-const Hapi = require('@hapi/hapi');
-const Inert = require('@hapi/inert');
-const Vision = require('@hapi/vision');
-const CookieAuth = require('@hapi/cookie');
-const HapiSwagger = require('hapi-swagger');
-const WS = require('websocket-stream');
-const Handlebars = require('handlebars');
-const debug = require('debug')('errors');
-const debugHttp = require('debug')('hsync:http');
+import net from 'net';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import Hapi from '@hapi/hapi';
+import Inert from '@hapi/inert';
+import Vision from '@hapi/vision';
+import CookieAuth from '@hapi/cookie';
+import HapiSwagger from 'hapi-swagger';
+import { WebSocketServer, createWebSocketStream } from 'ws';
+import Handlebars from 'handlebars';
+import createDebug from 'debug';
 
-const { launchAedes } = require('./aedes');
-const sockets = require('./lib/socket-map');
-const getRoutes = require('./lib/routes');
+import { launchAedes } from './aedes.js';
+import sockets from './lib/socket-map.js';
+import getRoutes from './lib/routes.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const debug = createDebug('errors');
+const debugHttp = createDebug('hsync:http');
 
 async function startHapi(config) {
   const server = Hapi.server(config.http);
@@ -22,8 +29,7 @@ async function startHapi(config) {
     Vision,
     {
       plugin: HapiSwagger,
-      // eslint-disable-next-line
-      options: config.swaggerOptions
+      options: config.swaggerOptions,
     },
   ];
 
@@ -44,7 +50,7 @@ async function startHapi(config) {
     cookie: config.cookies,
     validateFunc: async () => {
       return { valid: true };
-    }
+    },
   });
 
   if (config.httpExt && config.httpExt.authStrategies) {
@@ -84,14 +90,21 @@ async function startHapi(config) {
 
   const aedes = await launchAedes(config);
 
-  WS.createServer({ server: server.listener }, aedes.handle);
+  const wss = new WebSocketServer({ server: server.listener });
+  wss.on('connection', (socket) => {
+    aedes.handle(createWebSocketStream(socket));
+  });
 
   function handleLocalHttpRequest(socket, data) {
     // console.log('hanlding local', data);
     // TODO would be a hell of a lot cooler if it could just pipe data instead of making a socket here.
     const mqTCPSocket = new net.Socket();
     mqTCPSocket.connect(config.http.port, '127.0.0.1', () => {
-      debugHttp(`CONNECTED TO LOCAL ${socket.hsyncClient ? 'MQTT' : 'HTTP'} SERVER`, socket.socketId, socket.hostName);
+      debugHttp(
+        `CONNECTED TO LOCAL ${socket.hsyncClient ? 'MQTT' : 'HTTP'} SERVER`,
+        socket.socketId,
+        socket.hostName
+      );
     });
 
     mqTCPSocket.on('data', (d) => {
@@ -99,7 +112,11 @@ async function startHapi(config) {
       socket.write(d);
     });
     mqTCPSocket.on('close', () => {
-      debugHttp(`LOCAL ${socket.hsyncClient ? 'MQTT' : 'HTTP'} CONNECTION CLOSED`, socket.socketId, socket.hostName);
+      debugHttp(
+        `LOCAL ${socket.hsyncClient ? 'MQTT' : 'HTTP'} CONNECTION CLOSED`,
+        socket.socketId,
+        socket.hostName
+      );
       socket.end();
       delete sockets[socket.socketId];
     });
@@ -115,4 +132,4 @@ async function startHapi(config) {
   };
 }
 
-module.exports = startHapi;
+export default startHapi;

@@ -1,3 +1,6 @@
-const run = require('./index');
+import run from './index.js';
 
-run();
+run().catch((err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});

@@ -1,12 +1,5 @@
-import { 
-  h,
-  Component,
-  render
- } from 'preact';
-import {
-  useState,
-  useEffect
-} from 'preact/hooks';
+import { h, Component, render } from 'preact';
+import { useState, useEffect } from 'preact/hooks';
 import htm from 'htm';
 import apiFetch from './api-fetch';
 import debug from 'debug';
@@ -14,7 +7,7 @@ import debug from 'debug';
 const html = htm.bind(h);
 
 window.hsyncConfig.libs = {
-  preact: { 
+  preact: {
     h,
     Component,
     render,

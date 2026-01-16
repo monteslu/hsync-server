@@ -1,19 +1,24 @@
-const net = require('net');
-const b64id = require('b64id');
-const debug = require('debug')('hsync:info');
-const debugError = require('debug')('error');
+import net from 'net';
+import b64id from 'b64id';
+import createDebug from 'debug';
 
-// const { parseReqHeaders } = require('./lib/http-parse');
-const { createParser } = require('./lib/simple-parse');
-const sockets = require('./lib/socket-map');
-const { forwardWebRequest, sendCloseRequest } = require('./aedes');
-const startHapi = require('./hapi');
-const defaultConfig = require('./config');
+// import { parseReqHeaders } from './lib/http-parse.js';
+import { createParser } from './lib/simple-parse.js';
+import sockets from './lib/socket-map.js';
+import { forwardWebRequest, sendCloseRequest } from './aedes.js';
+import startHapi from './hapi.js';
+import defaultConfig from './config.js';
+
+const debug = createDebug('hsync:info');
+const debugError = createDebug('error');
 
 async function run(conf = {}) {
   const config = { ...defaultConfig, ...conf };
   const HSYNC_CONNECT_PATH = `/${config.hsyncBase}`;
-  let handleLocalHttpRequest;
+
+  const hapi = await startHapi(config);
+  const { handleLocalHttpRequest } = hapi;
+
   const socketServer = net.createServer((socket) => {
     socket.socketId = b64id.generateId();
     sockets[socket.socketId] = socket;
@@ -24,7 +29,15 @@ async function run(conf = {}) {
 
     socket.on('data', async (data) => {
       if (!socket.hsyncClient) {
-        debug(`→ EXTERNAL DATA ${socket.socketId}`, socket.hostName, data.length, 'parsingStarted', socket.parsingStarted, 'finished', socket.parsingFinished);
+        debug(
+          `→ EXTERNAL DATA ${socket.socketId}`,
+          socket.hostName,
+          data.length,
+          'parsingStarted',
+          socket.parsingStarted,
+          'finished',
+          socket.parsingFinished
+        );
       }
 
       const headerParser = createParser(data);
@@ -42,11 +55,16 @@ async function run(conf = {}) {
           let toSend = data;
           if (socket.webQueue && socket.webQueue.length) {
             toSend = Buffer.concat([data, ...socket.webQueue]);
-            debug('adding web queue to data', socket.socketId, socket.webQueue.length, toSend.length);
+            debug(
+              'adding web queue to data',
+              socket.socketId,
+              socket.webQueue.length,
+              toSend.length
+            );
             socket.webQueue = [];
           }
 
-          if (parsed.url.startsWith(HSYNC_CONNECT_PATH) || (parsed.url === '/favicon.ico')) {
+          if (parsed.url.startsWith(HSYNC_CONNECT_PATH) || parsed.url === '/favicon.ico') {
             debug('hsync path', parsed.url);
             if (parsed.headers.upgrade) {
               socket.hsyncClient = true;
@@ -82,7 +100,11 @@ async function run(conf = {}) {
     socket.on('close', () => {
       // debug('EXTERNAL CONNECTION CLOSED', socket.socketId, socket.hostName);
       if (socket.mqTCPSocket) {
-        debug(`CLOSING ${socket.hsyncClient ? 'MQTT' : 'HTTP'} connection`, socket.socketId, socket.hostName);
+        debug(
+          `CLOSING ${socket.hsyncClient ? 'MQTT' : 'HTTP'} connection`,
+          socket.socketId,
+          socket.hostName
+        );
         socket.mqTCPSocket.end();
         delete sockets[socket.socketId];
         return;
@@ -108,10 +130,8 @@ async function run(conf = {}) {
     });
   });
 
-  const hapi = await startHapi(config);
-  handleLocalHttpRequest = hapi.handleLocalHttpRequest;
   socketServer.listen(config.port);
   debug('hsync server listening on port', config.port);
 }
 
-module.exports = run;
+export default run;

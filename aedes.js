@@ -1,12 +1,15 @@
-const Aedes = require('aedes');
-const rawr = require('rawr');
-const boom = require('@hapi/boom');
-const { EventEmitter } = require('events');
-const debug = require('debug')('hsync:mqtt');
+import Aedes from 'aedes';
+import rawr from 'rawr';
+import boom from '@hapi/boom';
+import { EventEmitter } from 'events';
+import createDebug from 'debug';
 
-const sockets = require('./lib/socket-map');
-const BAD_GATEWAY = require('./lib/bad-gateway');
-const { auth, dyns } = require('./lib/auth');
+import sockets from './lib/socket-map.js';
+import BAD_GATEWAY from './lib/bad-gateway.js';
+import { auth, dyns } from './lib/auth.js';
+import { DEFAULTS } from './config.js';
+
+const debug = createDebug('hsync:mqtt');
 
 let aedes;
 
@@ -27,7 +30,7 @@ function createClientPeer(client) {
     },
     setHsyncPeerKey: (peerName, key) => {
       debug('setting peer key', peerName, key);
-    }
+    },
   };
   const { hostName } = client;
   const transport = new EventEmitter();
@@ -49,7 +52,7 @@ function createClientPeer(client) {
     transport.emit('rpc', msg);
   };
 
-  const peer = rawr({ transport, timeout: 5000, methods });
+  const peer = rawr({ transport, timeout: DEFAULTS.RPC_TIMEOUT_MS, methods });
 
   return peer;
 }
@@ -59,7 +62,7 @@ function launchAedes(config) {
     for (const name in dyns) {
       const d = dyns[name];
       const now = Date.now();
-      if ((now - d.created) > config.unauthedTimeout) {
+      if (now - d.created > config.unauthedTimeout) {
         try {
           clients[name].close();
         } catch (e) {
@@ -69,7 +72,7 @@ function launchAedes(config) {
       }
     }
 
-    setTimeout(clearOldDyns, 60000);
+    setTimeout(clearOldDyns, DEFAULTS.DYN_CLEANUP_INTERVAL_MS);
   }
 
   if (config.unauthedNames) {
@@ -77,7 +80,6 @@ function launchAedes(config) {
   }
 
   aedes = Aedes({
-
     authenticate: async (client, username, password, callback) => {
       const authImpl = config.auth || auth;
       const authed = await authImpl(client, username, password?.toString());
@@ -179,7 +181,7 @@ function launchAedes(config) {
     authorizeSubscribe: (client, sub, callback) => {
       debug('authorizeSubscribe', client.id, sub.topic);
       callback(null, sub);
-    }
+    },
   });
 
   return aedes;
@@ -210,26 +212,36 @@ function forwardWebRequest(socket, data, info) {
 
   debug('↓ WEB REQUEST', topic, data.length, info ? 'first' : '');
 
-  if (info) { // first packet on socket
+  if (info) {
+    // first packet on socket
     const { headers } = info;
     const size = info.contentLengthHeader;
     const connection = headers.connection;
     // sometimes we have to wait for more data even tho a request says to close.
     // debug('size', size, 'connect', headers.connection, 'bodylength', info.bodyLength);
-    if ((connection === 'close') && size && (size > info.bodyLength)) {
+    if (connection === 'close' && size && size > info.bodyLength) {
       socket.httpWaiting = { data, size, currentBodySize: size };
       socket.httpWaiting.timeoutId = setTimeout(() => {
         debug('waited long enough, just send what we have.', topic, socket.httpWaiting.data.legth);
         publish(topic, socket.httpWaiting.data);
         socket.httpWaiting = null;
-      }, 3000); // TODO make configurable
+      }, DEFAULTS.HTTP_WAIT_TIMEOUT_MS);
       return;
     }
     return publish(topic, data);
   } else if (socket.httpWaiting) {
     const { httpWaiting } = socket;
     const newSize = httpWaiting.currentBodySize + data.length;
-    debug('waiting current:', httpWaiting.currentBodySize, 'new', data.length, 'new_total', newSize, 'total_needed', httpWaiting.size);
+    debug(
+      'waiting current:',
+      httpWaiting.currentBodySize,
+      'new',
+      data.length,
+      'new_total',
+      newSize,
+      'total_needed',
+      httpWaiting.size
+    );
     httpWaiting.data = Buffer.concat([httpWaiting.data, data]);
     httpWaiting.currentBodySize = newSize;
 
@@ -342,7 +354,7 @@ async function peerNotifyToClient(toHost, methodName, msg) {
   }
 }
 
-module.exports = {
+export {
   forwardWebRequest,
   publish,
   sendCloseRequest,
