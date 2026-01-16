@@ -48,8 +48,8 @@ async function startHapi(config) {
 
   server.auth.strategy('auth', 'cookie', {
     cookie: config.cookies,
-    validate: async () => {
-      return { valid: true };
+    validate: async (request, session) => {
+      return { isValid: true, credentials: session };
     },
   });
 
