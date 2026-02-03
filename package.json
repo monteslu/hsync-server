@@ -4,7 +4,7 @@
   "description": "creates unlimited public web URLs for your web servers no matter where they may be running",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
     "lint": "eslint . --ext .js",
     "dev": "nodemon --inspect run.js",
     "dev-brk": "nodemon --inspect-brk run.js",
@@ -38,6 +38,7 @@
     "eslint-plugin-import": "^2.25.2",
     "htm": "^3.0.4",
     "nodemon": "^3.0.1",
-    "preact": "^10.5.12"
+    "preact": "^10.5.12",
+    "vitest": "^2.0.0"
   }
 }
